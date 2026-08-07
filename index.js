@@ -111,43 +111,43 @@ const generateAWBPDF = async (shopId, orderId, apiKey, extra = "") => {
 
     // Process items
     const itemsSKUandQuantity = items.map((item) => ({
-      sku: item?.variation_info?.display_id || "NA",
+      sku: item?.variation_info?.display_id || "***",
       quantity: item?.quantity || 0,
     }));
 
     // Extract fields with defaults
     const trackingCode =
-      partner.order_number_vtp || partner.extend_code || "NA";
+      partner.order_number_vtp || partner.extend_code || "***";
     const sender = {
-      name: warehouseInfo.name || "NA",
+      name: warehouseInfo.name || "***",
       phone: warehouseInfo.phone || " ",
       address: warehouseInfo.address || "",
     };
     const receiver = {
-      name: servicePartner.RECEIVER_FULLNAME || "NA",
-      phone: servicePartner.RECEIVER_PHONE || "NA",
-      address: shippingAddress.full_address || "NA",
+      name: servicePartner.RECEIVER_FULLNAME || "***",
+      phone: servicePartner.RECEIVER_PHONE || "***",
+      address: shippingAddress.full_address || "***",
     };
     const parcel = {
-      length: servicePartner.PRODUCT_LENGTH || "NA",
-      width: servicePartner.PRODUCT_WIDTH || "NA",
-      height: servicePartner.PRODUCT_HEIGHT || "NA",
+      length: servicePartner.PRODUCT_LENGTH || "***",
+      width: servicePartner.PRODUCT_WIDTH || "***",
+      height: servicePartner.PRODUCT_HEIGHT || "***",
       weight: servicePartner.PRODUCT_WEIGHT
         ? servicePartner.PRODUCT_WEIGHT / 1000
-        : "NA",
+        : "***",
     };
-    const sortCode = partner.sort_code || "NA";
-    const orderGHN = partner.order_id_ghn || "NA";
-    const codAmount = servicePartner.MONEY_COLLECTION || "NA";
+    const sortCode = partner.sort_code || "***";
+    const orderGHN = partner.order_id_ghn || "***";
+    const codAmount = servicePartner.MONEY_COLLECTION || "***";
     const allowMutualCheck = true;
     const allowTryOn = false;
 
     // Format dimensions and weight
     const dimensions =
-      parcel.length !== "NA"
+      parcel.length !== "***"
         ? `${parcel.length}x${parcel.width}x${parcel.height}cm`
-        : "NA";
-    const weight = parcel.weight !== "NA" ? `${parcel.weight}kg` : "NA";
+        : "***";
+    const weight = parcel.weight !== "***" ? `${parcel.weight}kg` : "***";
 
     const pdfPath = path.join(PDF_DIR, `AWB_${shopId}_${orderId}.pdf`);
 
@@ -171,15 +171,10 @@ const generateAWBPDF = async (shopId, orderId, apiKey, extra = "") => {
 
     doc
       .font(FONTS.regular)
-      .text(
-        `${sender.address} ${sender.phone}`,
-        mmToPoints(3),
-        mmToPoints(30),
-        {
-          width: mmToPoints(95),
-          lineBreak: false,
-        }
-      );
+      .text(`DC-618831-F124`, mmToPoints(3), mmToPoints(30), {
+        width: mmToPoints(95),
+        lineBreak: false,
+      });
 
     // 📦 Receiver Info
     doc
@@ -468,3 +463,4 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`PDF directory: ${path.resolve(PDF_DIR)}`);
 });
+
