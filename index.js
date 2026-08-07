@@ -67,9 +67,8 @@ const getPartnerData = async (shopId, orderId, apiKey) => {
     return response.data;
   } catch (error) {
     const errorMsg = error.response
-      ? `API responded with ${error.response.status}: ${
-          error.response.data?.message || "No details"
-        }`
+      ? `API responded with ${error.response.status}: ${error.response.data?.message || "No details"
+      }`
       : error.message;
     throw new Error(`Failed to fetch partner data: ${errorMsg}`);
   }
@@ -267,14 +266,19 @@ const generateAWBPDF = async (shopId, orderId, apiKey, extra = "") => {
       .rect(mmToPoints(2), mmToPoints(55), mmToPoints(95), mmToPoints(10))
       .stroke();
 
-    // Add order information
+    // Add order information and sort code
     doc
       .font(FONTS.bold)
       .fontSize(14)
-      .text(orderId, mmToPoints(5), mmToPoints(56), {
-        width: mmToPoints(90),
-        align: "center",
-      });
+      .text(
+        sortCode !== "***" ? `${sortCode}` : orderId,
+        mmToPoints(5),
+        mmToPoints(56),
+        {
+          width: mmToPoints(90),
+          align: "center",
+        }
+      );
 
     doc
       .font(FONTS.bold)
