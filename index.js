@@ -25,6 +25,7 @@ const LOGOS = {
   vtp: path.join(__dirname, "./logos/vtp.png"),
   ghn: path.join(__dirname, "./logos/ghn.png"),
   spx: path.join(__dirname, "./logos/spx.png"), // Added for Shopee Xpress
+  ahamove: path.join(__dirname, "./logos/logo.png"),
   default: path.join(__dirname, "./logos/default.png"),
 };
 
@@ -81,6 +82,7 @@ const getLogoPath = (partnerData) => {
   // Map partner_id to logo
   const logoMap = {
     42: LOGOS.spx, // Shopee Xpress (based on API response)
+    11: LOGOS.ahamove, // Ahamove
     // Add partner_id for vtp and ghn (replace with actual IDs from your API)
     3: LOGOS.vtp, // Placeholder for vtp (update with correct partner_id)
     2: LOGOS.ghn, // Placeholder for ghn (update with correct partner_id)
@@ -115,16 +117,15 @@ const generateAWBPDF = async (shopId, orderId, apiKey, extra = "") => {
     }));
 
     // Extract fields with defaults
-    const trackingCode =
-      partner.order_number_vtp || partner.extend_code || "***";
+    const trackingCode = partner.extend_code || "DEFAULT";
     const sender = {
       name: warehouseInfo.name || "***",
       phone: warehouseInfo.phone || " ",
       address: warehouseInfo.address || "",
     };
     const receiver = {
-      name: servicePartner.RECEIVER_FULLNAME || "***",
-      phone: servicePartner.RECEIVER_PHONE || "***",
+      name: servicePartner.RECEIVER_FULLNAME || shippingAddress.full_name || "***",
+      phone: servicePartner.RECEIVER_PHONE || shippingAddress.phone_number || "***",
       address: shippingAddress.full_address || "***",
     };
     const parcel = {
