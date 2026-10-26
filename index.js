@@ -531,10 +531,12 @@ app.get("/3pl/get-awb/pancake/", async (req, res) => {
       });
     }
 
-    const pdfPath = await generateAWBPDF(shopId, orderId, token);
+    const result = await generateAWBPDF(shopId, orderId, token);
+    const pdfPath = typeof result === "string" ? result : result.pdfPath;
+    const absolutePdfPath = path.resolve(pdfPath);
     const fileName = `AWB_${shopId}_${orderId}.pdf`;
 
-    res.download(pdfPath, fileName, (err) => {
+    res.download(absolutePdfPath, fileName, (err) => {
       if (err) {
         console.error("Download error:", err);
         if (!res.headersSent) {
@@ -543,8 +545,10 @@ app.get("/3pl/get-awb/pancake/", async (req, res) => {
       }
 
       // Clean up file after sending
-      fs.unlink(pdfPath, (unlinkErr) => {
-        if (unlinkErr) console.error("Error deleting temp PDF:", unlinkErr);
+      fs.unlink(absolutePdfPath, (unlinkErr) => {
+        if (unlinkErr && unlinkErr.code !== "ENOENT") {
+          console.error("Error deleting temp PDF:", unlinkErr);
+        }
       });
     });
   } catch (error) {
