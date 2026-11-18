@@ -26,6 +26,7 @@ const LOGOS = {
   ghn: path.join(__dirname, "./logos/ghn.png"),
   spx: path.join(__dirname, "./logos/spx.png"), // Added for Shopee Xpress
   ahamove: path.join(__dirname, "./logos/logo.png"),
+  jnt: path.join(__dirname, "./logos/jnt.png"), // Added for J&T Express
   default: path.join(__dirname, "./logos/logo.png"),
 };
 
@@ -83,6 +84,7 @@ const getLogoPath = (partnerData) => {
   const logoMap = {
     42: LOGOS.spx, // Shopee Xpress (based on API response)
     11: LOGOS.ahamove, // Ahamove
+    15: LOGOS.jnt, // J&T Express
     // Add partner_id for vtp and ghn (replace with actual IDs from your API)
     3: LOGOS.vtp, // Placeholder for vtp (update with correct partner_id)
     2: LOGOS.ghn, // Placeholder for ghn (update with correct partner_id)
@@ -117,7 +119,8 @@ const generateAWBPDF = async (shopId, orderId, apiKey, extra = "", preloadedData
     }));
 
     // Extract fields with defaults
-    const trackingCode = partner.extend_code || "DEFAULT";
+    const trackingCode =
+      partner.extend_code || partner.order_number_vtp || "DEFAULT";
     const sender = {
       name: warehouseInfo.name || "***",
       phone: warehouseInfo.phone_number || warehouseInfo.phone || " ",
