@@ -26,7 +26,7 @@ const LOGOS = {
   ghn: path.join(__dirname, "./logos/ghn.png"),
   spx: path.join(__dirname, "./logos/spx.png"), // Added for Shopee Xpress
   ahamove: path.join(__dirname, "./logos/logo.png"),
-  default: path.join(__dirname, "./logos/default.png"),
+  default: path.join(__dirname, "./logos/logo.png"),
 };
 
 // Ensure PDF directory exists
@@ -92,13 +92,13 @@ const getLogoPath = (partnerData) => {
 };
 
 // Improved PDF generation with dynamic logo
-const generateAWBPDF = async (shopId, orderId, apiKey, extra = "") => {
+const generateAWBPDF = async (shopId, orderId, apiKey, extra = "", preloadedData = null) => {
   let doc;
   let writeStream;
 
   try {
     // Fetch partner data
-    const data = await getPartnerData(shopId, orderId, apiKey);
+    const data = preloadedData || (await getPartnerData(shopId, orderId, apiKey));
 
     // Safely extract data with defaults
     const partner = data.data?.partner || {};
@@ -112,7 +112,7 @@ const generateAWBPDF = async (shopId, orderId, apiKey, extra = "") => {
 
     // Process items
     const itemsSKUandQuantity = items.map((item) => ({
-      sku: item?.variation_info?.display_id || "***",
+      sku: item?.variation_info?.display_id || item?.variation_info?.name || "***",
       quantity: item?.quantity || 0,
     }));
 
@@ -120,13 +120,35 @@ const generateAWBPDF = async (shopId, orderId, apiKey, extra = "") => {
     const trackingCode = partner.extend_code || "DEFAULT";
     const sender = {
       name: warehouseInfo.name || "***",
-      phone: warehouseInfo.phone || " ",
-      address: warehouseInfo.address || "",
+      phone: warehouseInfo.phone_number || warehouseInfo.phone || " ",
+      address: warehouseInfo.full_address || warehouseInfo.address || "",
     };
     const receiver = {
-      name: servicePartner.RECEIVER_FULLNAME || shippingAddress.full_name || "***",
-      phone: servicePartner.RECEIVER_PHONE || shippingAddress.phone_number || "***",
-      address: shippingAddress.full_address || "***",
+      name:
+        shippingAddress.full_name ||
+        shippingAddress.name ||
+        data.data?.bill_full_name ||
+        data.data?.buyer_name ||
+        data.data?.buyer?.name ||
+        data.data?.customer?.name ||
+        servicePartner.RECEIVER_FULLNAME ||
+        "***",
+      phone:
+        shippingAddress.phone_number ||
+        shippingAddress.phone ||
+        data.data?.bill_phone_number ||
+        data.data?.buyer_phone ||
+        data.data?.buyer?.phone ||
+        data.data?.customer?.phone ||
+        servicePartner.RECEIVER_PHONE ||
+        "***",
+      address:
+        shippingAddress.full_address ||
+        shippingAddress.address ||
+        data.data?.bill_address ||
+        data.data?.buyer_address ||
+        data.data?.buyer?.address ||
+        "***",
     };
     const parcel = {
       length: servicePartner.PRODUCT_LENGTH || "***",
@@ -134,11 +156,13 @@ const generateAWBPDF = async (shopId, orderId, apiKey, extra = "") => {
       height: servicePartner.PRODUCT_HEIGHT || "***",
       weight: servicePartner.PRODUCT_WEIGHT
         ? servicePartner.PRODUCT_WEIGHT / 1000
+        : data.data?.total_weight
+        ? data.data.total_weight / 1000
         : "***",
     };
     const sortCode = partner.sort_code || "***";
-    const orderGHN = partner.order_id_ghn || "***";
-    const codAmount = servicePartner.MONEY_COLLECTION || "***";
+    const orderGHN = partner.order_id_ghn || "";
+    const codAmount = servicePartner.MONEY_COLLECTION || data.data?.cash || data.data?.total_price || "***";
     const allowMutualCheck = true;
     const allowTryOn = false;
 
@@ -163,28 +187,48 @@ const generateAWBPDF = async (shopId, orderId, apiKey, extra = "") => {
     // Add logo dynamically
     addLogoToPdf(doc, logoPath, 5, 5, 32);
 
-    // 🏷 Sender Info
+    // 🏷 Sender Info (Từ)
     doc
       .font(FONTS.bold)
-      .fontSize(9)
-      .text(sender.name, mmToPoints(3), mmToPoints(25));
-
-    doc
+      .fontSize(8)
+      .text("Từ: ", mmToPoints(3), mmToPoints(26), { continued: true })
       .font(FONTS.regular)
-      .text(`DC-618831-F124`, mmToPoints(3), mmToPoints(30), {
-        width: mmToPoints(95),
-        lineBreak: false,
-      });
+      .text(
+        `${sender.name}${
+          sender.phone && sender.phone.trim() ? ` - ${sender.phone}` : ""
+        }`,
+        { width: mmToPoints(92) }
+      );
 
-    // 📦 Receiver Info
+    // Separator line between Sender and Receiver
+    doc
+      .lineWidth(0.5)
+      .moveTo(mmToPoints(2), mmToPoints(32))
+      .lineTo(mmToPoints(97), mmToPoints(32))
+      .stroke();
+
+    // 📦 Receiver (Buyer) Info (Đến)
+    const receiverPhone =
+      receiver.phone && receiver.phone !== "***" ? receiver.phone : "";
     doc
       .font(FONTS.bold)
-      .text(receiver.name.substring(0, 20), mmToPoints(3), mmToPoints(40));
+      .fontSize(9.5)
+      .text("Đến: ", mmToPoints(3), mmToPoints(34), { continued: true })
+      .text(
+        `${receiver.name.toUpperCase()}${
+          receiverPhone ? ` - ${receiverPhone}` : ""
+        }`,
+        { width: mmToPoints(92) }
+      );
 
     doc
+      .font(FONTS.bold)
+      .fontSize(8.5)
+      .text("Địa chỉ: ", mmToPoints(3), mmToPoints(40), { continued: true })
       .font(FONTS.regular)
-      .text(receiver.address, mmToPoints(3), mmToPoints(45), {
-        width: mmToPoints(80),
+      .text(receiver.address, {
+        width: mmToPoints(92),
+        lineGap: 1,
       });
 
     // Generate and add barcode
@@ -307,23 +351,46 @@ const generateAWBPDF = async (shopId, orderId, apiKey, extra = "") => {
       .lineTo(mmToPoints(97), mmToPoints(111))
       .stroke();
 
-    // Or using checkmark/cross symbols for better visual:
+    // Checkboxes and notes
     doc
       .font(FONTS.bold)
       .fontSize(9)
-      .text(allowMutualCheck ? "[✓]" : "[✗]", mmToPoints(3), mmToPoints(100));
+      .text(allowMutualCheck ? "[OK]" : "[NO]", mmToPoints(3), mmToPoints(100));
+
+    doc
+      .font(FONTS.regular)
+      .fontSize(9)
+      .text("Đồng kiểm", mmToPoints(13), mmToPoints(100));
 
     doc
       .font(FONTS.bold)
       .fontSize(9)
-      .text(allowTryOn ? "[✓]" : "[✗]", mmToPoints(3), mmToPoints(104));
+      .text(allowTryOn ? "[OK]" : "[NO]", mmToPoints(3), mmToPoints(104.5));
+
+    doc
+      .font(FONTS.regular)
+      .fontSize(9)
+      .text("Cho thử", mmToPoints(13), mmToPoints(104.5));
+
+    // COD display
+    const formattedCod =
+      typeof codAmount === "number"
+        ? new Intl.NumberFormat("vi-VN").format(codAmount) + " đ"
+        : codAmount !== "***"
+        ? `${codAmount}`
+        : "0 đ";
+
+    doc
+      .font(FONTS.bold)
+      .fontSize(11)
+      .text(`COD: ${formattedCod}`, mmToPoints(3), mmToPoints(115));
 
     // Add extra text or order ID
     doc
       .font(FONTS.bold)
       .fontSize(16)
       .text(extra || orderId, mmToPoints(10), mmToPoints(100), {
-        width: mmToPoints(80),
+        width: mmToPoints(85),
         align: "right",
       });
 
@@ -344,7 +411,9 @@ const generateAWBPDF = async (shopId, orderId, apiKey, extra = "") => {
     doc.end();
 
     return new Promise((resolve, reject) => {
-      writeStream.on("finish", () => resolve(pdfPath));
+      writeStream.on("finish", () =>
+        resolve({ pdfPath, buyer: receiver, sender, trackingCode })
+      );
       writeStream.on("error", reject);
     });
   } catch (error) {
@@ -373,21 +442,58 @@ const addLogoToPdf = (doc, logoPath, x, y, width) => {
 // POST endpoint
 app.post("/generate-awb", async (req, res) => {
   try {
-    const { orderId: combinedOrderId, extra, token } = req.body;
+    let shopId, orderId, apiKey, extra, preloadedData;
 
-    if (!combinedOrderId) {
-      return res.status(400).json({ error: "orderId is required" });
+    // Check if order data was passed directly in body (e.g. { data: { ... } })
+    if (req.body.data && req.body.data.shop_id && req.body.data.id) {
+      shopId = req.body.data.shop_id;
+      orderId = req.body.data.id;
+      extra = req.body.extra || "";
+      preloadedData = req.body;
+    } else {
+      const {
+        orderId: combinedOrderId,
+        extra: reqExtra,
+        token,
+        orderData,
+      } = req.body;
+
+      if (!combinedOrderId && !orderData) {
+        return res.status(400).json({ error: "orderId or data payload is required" });
+      }
+
+      if (combinedOrderId) {
+        const parsed = parseOrderId(combinedOrderId);
+        shopId = parsed.shopId;
+        orderId = parsed.orderId;
+      } else if (orderData?.data) {
+        shopId = orderData.data.shop_id;
+        orderId = orderData.data.id;
+      }
+
+      apiKey = token || DEFAULT_API_KEY;
+      extra = reqExtra || "";
+      preloadedData = orderData || null;
     }
 
-    const { shopId, orderId } = parseOrderId(combinedOrderId);
-    const apiKey = token || DEFAULT_API_KEY;
-
-    const pdfPath = await generateAWBPDF(shopId, orderId, apiKey, extra);
-    const pdfUrl = `/awb/${shopId}_${orderId}.pdf`;
+    const result = await generateAWBPDF(
+      shopId,
+      orderId,
+      apiKey,
+      extra,
+      preloadedData
+    );
+    const pdfPath = typeof result === "string" ? result : result.pdfPath;
+    const fileName = path.basename(pdfPath);
+    const pdfUrl = `/awb/${fileName}`;
 
     res.json({
       success: true,
       message: "AWB PDF generated successfully",
+      orderId,
+      trackingCode: result.trackingCode,
+      buyer: result.buyer,
+      sender: result.sender,
       pdfUrl,
       downloadUrl: `${req.protocol}://${req.get("host")}${pdfUrl}`,
     });
